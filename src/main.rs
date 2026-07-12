@@ -62,6 +62,7 @@ pub enum Errors {
     TicketNotFound,
     MissingParameter,
     HelpNeeded,
+    NotYetImplemented(String),
     IOError(String),
 }
 
@@ -83,6 +84,8 @@ impl Display for Errors {
             Errors::HelpNeeded => {
                 write!(f, "{}", HELP_MESSAGE)
             }
+            Errors::NotYetImplemented(action) => {
+                write!(f, "Error: '{}' action is not yet implemented", action)
             }
             Errors::IOError(e) => {
                 log::debug!("Error while accessing file IO: {}", e);
@@ -140,8 +143,8 @@ impl State {
                 log::info!("Ticket {:x} created", ticket.id);
                 Ok(())
             }
-            Action::SetStatus => Ok(()),
-            Action::Delete => Ok(()),
+            Action::SetStatus => Err(Errors::NotYetImplemented("setstatus".to_string())),
+            Action::Delete => Err(Errors::NotYetImplemented("delete".to_string())),
             Action::List => {
                 log::debug!("listing all tickets <>");
                 let mut contents = String::new();
