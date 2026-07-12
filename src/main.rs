@@ -176,14 +176,22 @@ fn main() {
 }
 
 fn run_application() -> Result<(), Errors> {
-    simple_logger::init_with_level(log::Level::Debug).unwrap();
-
     let mut state = State::default();
 
     // ARGS
     // tickets [action] [title] [description] [--args]
 
     let args: Vec<String> = env::args().collect();
+
+    let verbose = args
+        .iter()
+        .any(|a| matches!(a.to_lowercase().as_str(), "-v" | "--verbose"));
+    if verbose {
+        simple_logger::init_with_level(log::Level::Debug).unwrap();
+    } else {
+        simple_logger::init_with_level(log::Level::Info).unwrap();
+    }
+
     log::debug!("Received {} arguments: {}", args.len(), args.join(","));
 
     if args.len() <= 1 {
@@ -200,9 +208,13 @@ fn run_application() -> Result<(), Errors> {
         state.action = Some(Action::is_valid(action)?);
     }
 
-    for value in &args {
+    for (idx, value) in args.iter().enumerate() {
         match value.to_lowercase().as_str() {
-            "-f" | "--file" => state.custom_filepath = Some(value.clone()),
+            "-f" | "--file" => {
+                if let Some(next) = args.get(idx + 1) {
+                    state.custom_filepath = Some(next.clone());
+                }
+            }
             "-v" | "--verbose" => state.verbose_mode = true,
             &_ => {}
         }
