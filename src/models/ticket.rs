@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 
 use crate::Errors;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum TicketStatus {
     Open,
     Blocked,
@@ -16,14 +16,16 @@ pub enum TicketStatus {
 }
 
 impl TicketStatus {
-    fn is_valid(s: &String) -> Result<TicketStatus, Errors> {
+    pub fn is_valid(s: &String) -> Result<TicketStatus, Errors> {
         log::debug!("validating TicketStatus: {}", s);
         match s.to_lowercase().as_str() {
             "open" => Ok(TicketStatus::Open),
             "blocked" => Ok(TicketStatus::Blocked),
             "closed" => Ok(TicketStatus::Closed),
             "inprogress" => Ok(TicketStatus::InProgress),
-            _ => Err(Errors::UnknowAction),
+            _ => Err(Errors::BadParammeter(format!(
+                "[ticket_status] invalid value '{s}' for ticket status\npls see -h / --help"
+            ))),
         }
     }
 }
@@ -61,30 +63,19 @@ impl Ticket {
     pub fn new_from_string<S: Into<String> + Copy>(raw_data: S) -> Result<Ticket, Errors> {
         log::debug!("Received raw_data:  {}", &raw_data.into());
         let binding = raw_data.into();
-        let params: Vec<_> = binding.split(",").collect();
-        log::debug!(
-            "{} elements splitted - list: {}",
-            params.len(),
-            params.join(" - ")
-        );
-        let t = Ticket {
-            id: params
-                .get(0)
-                .unwrap()
-                .to_string()
-                .parse()
-                .expect("not a valid value"),
-            title: params.get(1).unwrap().to_string(),
-            status: TicketStatus::is_valid(&params.get(2).unwrap().to_string())?,
-            description: params.get(3).unwrap().to_string(),
-            date: params
-                .get(4)
-                .unwrap()
-                .to_string()
-                .parse()
-                .expect("not a valid value"),
-        };
-        Ok(t)
+        let parts: Vec<&str> = binding.split(',').collect();
+        log::debug!("Received: {} parts - {:?}", parts.len(), parts);
+
+        let [id, title, status, description, date] =
+            parts.try_into().map_err(|_| Errors::InvalidFormat)?;
+
+        Ok(Ticket {
+            id: id.parse().map_err(|_| Errors::InvalidFormat)?,
+            title: title.to_string(),
+            status: TicketStatus::is_valid(&status.to_string())?,
+            description: description.to_string(),
+            date: date.parse().map_err(|_| Errors::InvalidFormat)?,
+        })
     }
 
     pub fn status(mut self, status: TicketStatus) -> Self {

@@ -1,13 +1,15 @@
 use log;
+use regex::Regex;
 use std::{
     env,
     error::Error,
     fmt::Display,
-    fs::{File, OpenOptions},
-    io::{Read, Write},
+    fs::{self, File, OpenOptions},
+    io::{BufRead, BufReader, ErrorKind, Read, Write},
+    num::{IntErrorKind, ParseIntError},
 };
 
-use crate::models::ticket::Ticket;
+use crate::models::ticket::{Ticket, TicketStatus};
 
 pub mod models;
 
@@ -41,6 +43,7 @@ enum Action {
     Delete,
     List,
     SetStatus,
+    GetDetail,
 }
 
 impl Action {
@@ -50,6 +53,7 @@ impl Action {
             "delete" | "d" => Ok(Action::Delete),
             "list" | "l" => Ok(Action::List),
             "setstatus" | "set" => Ok(Action::SetStatus),
+            "getdetail" | "get" => Ok(Action::GetDetail),
             _ => Err(Errors::UnknowAction),
         }
     }
@@ -61,9 +65,11 @@ pub enum Errors {
     UnknowAction,
     TicketNotFound,
     MissingParameter,
+    BadParammeter(String),
     HelpNeeded,
     NotYetImplemented(String),
     IOError(String),
+    InvalidFormat,
 }
 
 impl Display for Errors {
@@ -91,11 +97,39 @@ impl Display for Errors {
                 log::debug!("Error while accessing file IO: {}", e);
                 write!(f, "Something went wrong while accessing db")
             }
+            Errors::BadParammeter(s) => {
+                write!(f, "Bad parameter: {}", s)
+            }
+            Errors::InvalidFormat => {
+                write!(f, "Invalid formated data recived from db!")
+            }
         }
     }
 }
 
 impl Error for Errors {}
+
+impl From<std::io::Error> for Errors {
+    fn from(value: std::io::Error) -> Self {
+        log::error!("IO Error: {}", value.to_string());
+        match value.kind() {
+            ErrorKind::NotFound => {
+                Errors::FileNotFound("The requested file was not found".to_string())
+            }
+            _ => Errors::IOError(value.to_string()),
+        }
+    }
+}
+
+impl From<ParseIntError> for Errors {
+    fn from(value: ParseIntError) -> Self {
+        log::error!("Parse Error: {}", value.to_string());
+        match value.kind() {
+            IntErrorKind::InvalidDigit => Errors::InvalidFormat,
+            _ => Errors::IOError(value.to_string()),
+        }
+    }
+}
 
 struct State {
     action: Option<Action>,
@@ -143,7 +177,54 @@ impl State {
                 log::info!("Ticket {:x} created", ticket.id);
                 Ok(())
             }
-            Action::SetStatus => Err(Errors::NotYetImplemented("setstatus".to_string())),
+            Action::SetStatus => {
+                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
+
+                let ticket_id = args
+                    .get(2)
+                    .filter(|id| id.len() == 8)
+                    .filter(|id| re.is_match(id))
+                    .ok_or(Errors::BadParammeter(
+                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
+                    ))?
+                    .to_string();
+
+                let ticket_id_u32 = u32::from_str_radix(ticket_id.as_str(), 16)?;
+                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_u32);
+
+                let new_status = args
+                    .get(3)
+                    .ok_or(Errors::MissingParameter)
+                    .and_then(TicketStatus::is_valid)?;
+
+                let reader = BufReader::new(file);
+                let temp_path = format!("{}.tmp", path);
+                let mut temp = fs::File::create(&temp_path)?;
+                let mut any_changes = false;
+
+                for (i, line) in reader.lines().enumerate() {
+                    let line = line?;
+                    let mut content = line.clone();
+
+                    if line.contains(ticket_id_u32.to_string().as_str()) {
+                        log::info!("Found '{}' on line {}: {}", ticket_id, i + 1, line.trim());
+                        let mut ticket = Ticket::new_from_string(line.as_str())?;
+                        ticket.status = new_status;
+                        content = ticket.to_string();
+                        any_changes = true
+                    }
+                    writeln!(temp, "{}", content).map_err(|e| Errors::IOError(e.to_string()))?;
+                }
+
+                if !any_changes {
+                    return Err(Errors::TicketNotFound);
+                }
+
+                fs::rename(temp_path, path)?;
+
+                Ok(())
+            }
+            Action::GetDetail => Err(Errors::NotYetImplemented("getdetail".to_string())),
             Action::Delete => Err(Errors::NotYetImplemented("delete".to_string())),
             Action::List => {
                 log::debug!("listing all tickets <>");
@@ -158,7 +239,7 @@ impl State {
                     .collect::<Result<Vec<Ticket>, Errors>>()?;
 
                 println!("  ALL TICKETS [{}]", ticket_list.len());
-                println!("  id\ttitle\tstatus\tdescription");
+                println!("  id\ttitle\tstatus\tdescription\tdate");
                 for ticket in ticket_list {
                     println!("  {}", ticket.list_view());
                 }
