@@ -2,40 +2,18 @@ use log;
 use regex::Regex;
 use std::{
     env,
-    error::Error,
-    fmt::Display,
     fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, ErrorKind, Read, Write},
-    num::{IntErrorKind, ParseIntError},
+    io::{BufRead, BufReader, Read, Write},
 };
 
-use crate::models::ticket::{Ticket, TicketStatus};
+use crate::{
+    errors::Errors,
+    models::ticket::{Ticket, TicketStatus},
+};
 
+pub mod errors;
 pub mod models;
-
-const HELP_MESSAGE: &str = "\
-tickets 0.1.0
-
-A simple CLI ticket manager.
-
-USAGE:
-    tickets <ACTION> [<title> <description>] [OPTIONS]
-
-ACTIONS:
-    add, a          Create a new ticket (requires <title> and <description>)
-    list, l         List all tickets
-    delete, d       Delete a ticket (not yet implemented)
-    setstatus, set  Change a ticket's status (not yet implemented)
-
-OPTIONS:
-    -f, --file <PATH>  Use a custom database file instead of the default \"tickets.db\"
-    -v, --verbose      Enable verbose/debug logging
-    -h, --help         Print this help message
-
-EXAMPLES:
-    tickets add \"Fix login bug\" \"The login button doesn't respond\"
-    tickets list
-    tickets -f my_tickets.db list";
+pub mod utils;
 
 #[derive(Debug, Clone, Copy)]
 enum Action {
@@ -55,78 +33,6 @@ impl Action {
             "setstatus" | "set" => Ok(Action::SetStatus),
             "getdetail" | "get" => Ok(Action::GetDetail),
             _ => Err(Errors::UnknowAction),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum Errors {
-    FileNotFound(String),
-    UnknowAction,
-    TicketNotFound,
-    MissingParameter,
-    BadParammeter(String),
-    HelpNeeded,
-    NotYetImplemented(String),
-    IOError(String),
-    InvalidFormat,
-}
-
-impl Display for Errors {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Errors::UnknowAction => {
-                write!(f, "Error: Unknow action name")
-            }
-            Errors::TicketNotFound => {
-                write!(f, "Ticket id not found")
-            }
-            Errors::MissingParameter => {
-                write!(f, "Error: Missing parameter, pls see -help")
-            }
-            Errors::FileNotFound(path) => {
-                write!(f, "The file at '{}' could not be found", path)
-            }
-            Errors::HelpNeeded => {
-                write!(f, "{}", HELP_MESSAGE)
-            }
-            Errors::NotYetImplemented(action) => {
-                write!(f, "Error: '{}' action is not yet implemented", action)
-            }
-            Errors::IOError(e) => {
-                log::debug!("Error while accessing file IO: {}", e);
-                write!(f, "Something went wrong while accessing db")
-            }
-            Errors::BadParammeter(s) => {
-                write!(f, "Bad parameter: {}", s)
-            }
-            Errors::InvalidFormat => {
-                write!(f, "Invalid formated data recived from db!")
-            }
-        }
-    }
-}
-
-impl Error for Errors {}
-
-impl From<std::io::Error> for Errors {
-    fn from(value: std::io::Error) -> Self {
-        log::error!("IO Error: {}", value.to_string());
-        match value.kind() {
-            ErrorKind::NotFound => {
-                Errors::FileNotFound("The requested file was not found".to_string())
-            }
-            _ => Errors::IOError(value.to_string()),
-        }
-    }
-}
-
-impl From<ParseIntError> for Errors {
-    fn from(value: ParseIntError) -> Self {
-        log::error!("Parse Error: {}", value.to_string());
-        match value.kind() {
-            IntErrorKind::InvalidDigit => Errors::InvalidFormat,
-            _ => Errors::IOError(value.to_string()),
         }
     }
 }
