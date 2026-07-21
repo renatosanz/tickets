@@ -8,7 +8,7 @@ use std::io::Write;
 
 use crate::{
     errors::Errors,
-    models::ticket::{Ticket, TicketStatus},
+    models::ticket::{self, Ticket, TicketStatus},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -126,7 +126,41 @@ impl State {
 
                 Ok(())
             }
-            Action::GetDetail => Err(Errors::NotYetImplemented("getdetail".to_string())),
+            Action::GetDetail => {
+                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
+
+                let ticket_id = args
+                    .get(2)
+                    .filter(|id| id.len() == 8)
+                    .filter(|id| re.is_match(id))
+                    .ok_or(Errors::BadParammeter(
+                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
+                    ))?
+                    .to_string();
+
+                let ticket_id_str = &u32::from_str_radix(ticket_id.as_str(), 16)?.to_string();
+                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_str);
+
+                let reader = BufReader::new(file);
+                let mut ticket: Option<Ticket> = None;
+
+                for (i, line) in reader.lines().enumerate() {
+                    let line = line?;
+
+                    if line.contains(ticket_id_str) {
+                        log::info!("Found '{}' on line {}: {}", ticket_id, i + 1, line.trim());
+                        ticket = Ticket::new_from_string(line.as_str()).ok();
+                    }
+                }
+
+                if ticket.is_none() {
+                    return Err(Errors::TicketNotFound);
+                } else if let Some(data) = ticket {
+                    println!("{}", data.show_detailed());
+                }
+
+                Ok(())
+            }
             Action::Delete => Err(Errors::NotYetImplemented("delete".to_string())),
             Action::List => {
                 log::debug!("listing all tickets <>");

@@ -91,9 +91,47 @@ impl Ticket {
         self.status == TicketStatus::Open
     }
 
+    pub fn show_detailed(self) -> String {
+        let w: usize = 56;
+        let border = "─".repeat(w);
+
+        let date_str = self.date.format("%-d of %B of %Y at %-I:%M %p").to_string();
+        let status_str = format!("{:?}", self.status);
+        let id_str = format!("{:x}", self.id);
+
+        let mut s = String::new();
+
+        s.push_str(&format!(" ┌{}┐\n", border));
+        s.push_str(&format!(" │ Ticket #{:<width$}│\n", id_str, width = w - 9));
+        s.push_str(&format!(" ├{}┤\n", border));
+        s.push_str(&format!(
+            " │ Title       {:<width$}│\n",
+            self.title,
+            width = w - 14
+        ));
+        s.push_str(&format!(
+            " │ Status      {:<width$}│\n",
+            status_str,
+            width = w - 14
+        ));
+        s.push_str(&format!(
+            " │ Date        {:<width$}│\n",
+            date_str,
+            width = w - 14
+        ));
+        s.push_str(&format!(" ├{}┤\n", border));
+        s.push_str(&format!(" │ Description{:<width$}│\n", "", width = w - 13));
+        for line in self.description.lines() {
+            s.push_str(&format!(" │   {:<width$}│\n", line, width = w - 3));
+        }
+        s.push_str(&format!(" └{}┘", border));
+
+        s
+    }
+
     pub fn list_view(&self) -> String {
         format!(
-            "{:x}\t{}\t{:?}\t{}\t{}",
+            "{:08x}\t{}\t{:?}\t{}\t{}",
             self.id,
             self.title,
             self.status,
