@@ -162,7 +162,45 @@ impl State {
 
                 Ok(())
             }
-            Action::Delete => Err(Errors::NotYetImplemented("delete".to_string())),
+            Action::Delete => {
+                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
+
+                let ticket_id = args
+                    .get(2)
+                    .filter(|id| id.len() == 8)
+                    .filter(|id| re.is_match(id))
+                    .ok_or(Errors::BadParammeter(
+                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
+                    ))?
+                    .to_string();
+                let ticket_id_str = &u32::from_str_radix(ticket_id.as_str(), 16)?.to_string();
+                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_str);
+
+                let reader = BufReader::new(file);
+                let temp_path = format!("{}.tmp", path);
+                let mut temp = fs::File::create(&temp_path)?;
+                let mut any_changes = false;
+
+                for (i, line) in reader.lines().enumerate() {
+                    let line = line?;
+
+                    if line.contains(ticket_id_str) {
+                        log::info!("Found '{}' on line {}: {}", ticket_id, i + 1, line.trim());
+                        any_changes = true
+                    } else {
+                        writeln!(temp, "{}", line).map_err(|e| Errors::IOError(e.to_string()))?;
+                    }
+                }
+
+                if !any_changes {
+                    fs::remove_file(temp_path)?;
+                    return Err(Errors::TicketNotFound);
+                }
+
+                fs::rename(temp_path, path)?;
+
+                Ok(())
+            }
             Action::List => {
                 log::debug!("listing all tickets <>");
                 let mut contents = String::new();
