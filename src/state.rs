@@ -8,7 +8,7 @@ use std::io::Write;
 
 use crate::{
     errors::Errors,
-    models::ticket::{self, Ticket, TicketStatus},
+    models::ticket::{Ticket, TicketStatus},
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -28,7 +28,7 @@ impl Action {
             "list" | "l" => Ok(Action::List),
             "setstatus" | "set" => Ok(Action::SetStatus),
             "getdetail" | "get" => Ok(Action::GetDetail),
-            _ => Err(Errors::UnknowAction),
+            _ => Err(Errors::UnknownAction),
         }
     }
 }
@@ -86,7 +86,7 @@ impl State {
                     .get(2)
                     .filter(|id| id.len() == 8)
                     .filter(|id| re.is_match(id))
-                    .ok_or(Errors::BadParammeter(
+                    .ok_or(Errors::BadParameter(
                         "[ticket_id] must be a hexadecimal 8 chars".to_string(),
                     ))?
                     .to_string();
@@ -134,7 +134,7 @@ impl State {
                     .get(2)
                     .filter(|id| id.len() == 8)
                     .filter(|id| re.is_match(id))
-                    .ok_or(Errors::BadParammeter(
+                    .ok_or(Errors::BadParameter(
                         "[ticket_id] must be a hexadecimal 8 chars".to_string(),
                     ))?
                     .to_string();
@@ -169,7 +169,7 @@ impl State {
                     .get(2)
                     .filter(|id| id.len() == 8)
                     .filter(|id| re.is_match(id))
-                    .ok_or(Errors::BadParammeter(
+                    .ok_or(Errors::BadParameter(
                         "[ticket_id] must be a hexadecimal 8 chars".to_string(),
                     ))?
                     .to_string();

@@ -23,8 +23,8 @@ impl TicketStatus {
             "blocked" => Ok(TicketStatus::Blocked),
             "closed" => Ok(TicketStatus::Closed),
             "inprogress" => Ok(TicketStatus::InProgress),
-            _ => Err(Errors::BadParammeter(format!(
-                "[ticket_status] invalid value '{s}' for ticket status\npls see -h / --help"
+            _ => Err(Errors::BadParameter(format!(
+                "[ticket_status] invalid value '{s}' for ticket status, use -h for help"
             ))),
         }
     }

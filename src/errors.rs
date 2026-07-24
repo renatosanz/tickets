@@ -10,12 +10,11 @@ use crate::utils::constants::HELP_MESSAGE;
 #[derive(Debug)]
 pub enum Errors {
     FileNotFound(String),
-    UnknowAction,
+    UnknownAction,
     TicketNotFound,
     MissingParameter,
-    BadParammeter(String),
+    BadParameter(String),
     HelpNeeded,
-    NotYetImplemented(String),
     IOError(String),
     InvalidFormat,
 }
@@ -23,14 +22,14 @@ pub enum Errors {
 impl Display for Errors {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Errors::UnknowAction => {
-                write!(f, "Error: Unknow action name")
+            Errors::UnknownAction => {
+                write!(f, "Error: unknown action name")
             }
             Errors::TicketNotFound => {
                 write!(f, "Ticket id not found")
             }
             Errors::MissingParameter => {
-                write!(f, "Error: Missing parameter, pls see -help")
+                write!(f, "Error: missing parameter, use -h for help")
             }
             Errors::FileNotFound(path) => {
                 write!(f, "The file at '{}' could not be found", path)
@@ -38,18 +37,15 @@ impl Display for Errors {
             Errors::HelpNeeded => {
                 write!(f, "{}", HELP_MESSAGE)
             }
-            Errors::NotYetImplemented(action) => {
-                write!(f, "Error: '{}' action is not yet implemented", action)
-            }
             Errors::IOError(e) => {
                 log::debug!("Error while accessing file IO: {}", e);
                 write!(f, "Something went wrong while accessing db")
             }
-            Errors::BadParammeter(s) => {
+            Errors::BadParameter(s) => {
                 write!(f, "Bad parameter: {}", s)
             }
             Errors::InvalidFormat => {
-                write!(f, "Invalid formated data recived from db!")
+                write!(f, "Invalid formatted data received from database")
             }
         }
     }
