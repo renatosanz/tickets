@@ -119,6 +119,7 @@ impl State {
                 }
 
                 if !any_changes {
+                    fs::remove_file(temp_path)?;
                     return Err(Errors::TicketNotFound);
                 }
 
