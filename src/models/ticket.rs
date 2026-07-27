@@ -1,13 +1,14 @@
 use std::{
-    fmt::Display,
+    fmt::{Display, format},
     hash::{DefaultHasher, Hash, Hasher},
 };
 
-use chrono::{DateTime, Utc};
-
 use crate::Errors;
+use chrono::{DateTime, Utc};
+use sqlx::{SqlitePool, Type, prelude::FromRow};
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy, Type)]
+#[sqlx(rename_all = "lowercase")]
 pub enum TicketStatus {
     Open,
     Blocked,
@@ -30,6 +31,7 @@ impl TicketStatus {
     }
 }
 
+#[derive(FromRow)]
 pub struct Ticket {
     pub id: u32,
     pub title: String,
@@ -76,6 +78,26 @@ impl Ticket {
             description: description.to_string(),
             date: date.parse().map_err(|_| Errors::InvalidFormat)?,
         })
+    }
+
+    pub async fn create_table(pool: &SqlitePool) -> Result<(), Errors> {
+        sqlx::query(
+            "CREATE TABLE IF NOT EXISTS tickets  (
+            id SERIAL PRIMARY KEY NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT NOT NULL,
+            date DATETIME NOT NULL,
+            status TEXT NOT NULL
+        );",
+        )
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            log::error!("Error creating tickets db scheme: {e}");
+            Errors::IOError("Error creating tickets db scheme".to_string())
+        })?;
+
+        Ok(())
     }
 
     pub fn status(mut self, status: TicketStatus) -> Self {
@@ -138,6 +160,37 @@ impl Ticket {
             self.description,
             self.date.to_rfc3339()
         )
+    }
+
+    pub async fn save(&self, pool: &SqlitePool) -> Result<(), Errors> {
+        sqlx::query(
+            "INSERT INTO tickets (id,title, description, date, status) VALUES (?,?, ?, ?, ?)",
+        )
+        .bind(&self.id)
+        .bind(&self.title)
+        .bind(&self.description)
+        .bind(&self.date)
+        .bind(&self.status)
+        .execute(pool)
+        .await
+        .map_err(|e| {
+            log::error!("Error creating tickets db scheme: {e}");
+            Errors::IOError("Error creating tickets db scheme".to_string())
+        })?;
+
+        Ok(())
+    }
+
+    pub async fn find_all(pool: &SqlitePool) -> Result<Vec<Self>, Errors> {
+        let tickets: Vec<Self> = sqlx::query_as("SELECT * FROM tickets ORDER BY id DESC")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| {
+                log::error!("Error creating tickets db scheme: {e}");
+                Errors::IOError("Error creating tickets db scheme".to_string())
+            })?;
+
+        Ok(tickets)
     }
 }
 

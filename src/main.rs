@@ -11,14 +11,15 @@ pub mod models;
 pub mod state;
 pub mod utils;
 
-fn main() {
-    if let Err(error) = run_application() {
+#[tokio::main]
+async fn main() {
+    if let Err(error) = run_application().await {
         eprintln!("[TICKETS] > {}", error);
         std::process::exit(1);
     }
 }
 
-fn run_application() -> Result<(), Errors> {
+async fn run_application() -> Result<(), Errors> {
     let mut state = State::default();
 
     // ARGS
@@ -63,7 +64,7 @@ fn run_application() -> Result<(), Errors> {
         }
     }
 
-    state.execute(&args)?;
+    state.execute(&args).await?;
 
     Ok(())
 }
