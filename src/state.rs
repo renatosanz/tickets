@@ -7,7 +7,10 @@ use regex::Regex;
 use sqlx::sqlite::SqlitePoolOptions;
 use std::io::Write;
 
-use crate::{errors::Errors, models::ticket::Ticket};
+use crate::{
+    errors::Errors,
+    models::ticket::{Ticket, TicketStatus},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
@@ -80,125 +83,67 @@ impl State {
                 Ok(())
             }
             Action::SetStatus => {
-                // let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
-                //
-                // let ticket_id = args
-                //     .get(2)
-                //     .filter(|id| id.len() == 8)
-                //     .filter(|id| re.is_match(id))
-                //     .ok_or(Errors::BadParameter(
-                //         "[ticket_id] must be a hexadecimal 8 chars".to_string(),
-                //     ))?
-                //     .to_string();
-                //
-                // let ticket_id_u32 = u32::from_str_radix(ticket_id.as_str(), 16)?;
-                // log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_u32);
-                //
-                // let new_status = args
-                //     .get(3)
-                //     .ok_or(Errors::MissingParameter)
-                //     .and_then(TicketStatus::is_valid)?;
-                //
-                // let reader = BufReader::new(file);
-                // let temp_path = format!("{}.tmp", path);
-                // let mut temp = fs::File::create(&temp_path)?;
-                // let mut any_changes = false;
-                //
-                // for (i, line) in reader.lines().enumerate() {
-                //     let line = line?;
-                //     let mut content = line.clone();
-                //
-                //     if line.contains(ticket_id_u32.to_string().as_str()) {
-                //         log::info!("Found '{}' on line {}: {}", ticket_id, i + 1, line.trim());
-                //         let mut ticket = Ticket::new_from_string(line.as_str())?;
-                //         ticket.status = new_status;
-                //         content = ticket.to_string();
-                //         any_changes = true
-                //     }
-                //     writeln!(temp, "{}", content).map_err(|e| Errors::IOError(e.to_string()))?;
-                // }
-                //
-                // if !any_changes {
-                //     fs::remove_file(temp_path)?;
-                //     return Err(Errors::TicketNotFound);
-                // }
-                //
-                // fs::rename(temp_path, path)?;
-                //
+                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
+
+                let ticket_id = args
+                    .get(2)
+                    .filter(|id| id.len() == 8)
+                    .filter(|id| re.is_match(id))
+                    .ok_or(Errors::BadParameter(
+                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
+                    ))?
+                    .to_string();
+
+                let ticket_id_u32 = u32::from_str_radix(ticket_id.as_str(), 16)?;
+                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_u32);
+
+                let new_status = args
+                    .get(3)
+                    .ok_or(Errors::MissingParameter)
+                    .and_then(TicketStatus::is_valid)?;
+
+                let mut ticket = Ticket::find_one_by_id(&pool, ticket_id_u32).await?;
+                ticket.status(new_status);
+                ticket.update(&pool).await?;
+
                 Ok(())
             }
             Action::GetDetail => {
-                // let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
-                //
-                // let ticket_id = args
-                //     .get(2)
-                //     .filter(|id| id.len() == 8)
-                //     .filter(|id| re.is_match(id))
-                //     .ok_or(Errors::BadParameter(
-                //         "[ticket_id] must be a hexadecimal 8 chars".to_string(),
-                //     ))?
-                //     .to_string();
-                //
-                // let ticket_id_str = &u32::from_str_radix(ticket_id.as_str(), 16)?.to_string();
-                // log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_str);
-                //
-                // let reader = BufReader::new(file);
-                // let mut ticket: Option<Ticket> = None;
-                //
-                // for (i, line) in reader.lines().enumerate() {
-                //     let line = line?;
-                //
-                //     if line.contains(ticket_id_str) {
-                //         log::info!("Found '{}' on line {}: {}", ticket_id, i + 1, line.trim());
-                //         ticket = Ticket::new_from_string(line.as_str()).ok();
-                //     }
-                // }
-                //
-                // if ticket.is_none() {
-                //     return Err(Errors::TicketNotFound);
-                // } else if let Some(data) = ticket {
-                //     println!("{}", data.show_detailed());
-                // }
-                //
+                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
+
+                let ticket_id = args
+                    .get(2)
+                    .filter(|id| id.len() == 8)
+                    .filter(|id| re.is_match(id))
+                    .ok_or(Errors::BadParameter(
+                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
+                    ))?
+                    .to_string();
+
+                let ticket_id_u32 = u32::from_str_radix(ticket_id.as_str(), 16)?;
+                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, &ticket_id_u32);
+
+                let ticket = Ticket::find_one_by_id(&pool, ticket_id_u32).await?;
+                println!("{}", ticket.show_detailed());
                 Ok(())
             }
             Action::Delete => {
-                // let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
-                //
-                // let ticket_id = args
-                //     .get(2)
-                //     .filter(|id| id.len() == 8)
-                //     .filter(|id| re.is_match(id))
-                //     .ok_or(Errors::BadParameter(
-                //         "[ticket_id] must be a hexadecimal 8 chars".to_string(),
-                //     ))?
-                //     .to_string();
-                // let ticket_id_str = &u32::from_str_radix(ticket_id.as_str(), 16)?.to_string();
-                // log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_str);
-                //
-                // let reader = BufReader::new(file);
-                // let temp_path = format!("{}.tmp", path);
-                // let mut temp = fs::File::create(&temp_path)?;
-                // let mut any_changes = false;
-                //
-                // for (i, line) in reader.lines().enumerate() {
-                //     let line = line?;
-                //
-                //     if line.contains(ticket_id_str) {
-                //         log::info!("Found '{}' on line {}: {}", ticket_id, i + 1, line.trim());
-                //         any_changes = true
-                //     } else {
-                //         writeln!(temp, "{}", line).map_err(|e| Errors::IOError(e.to_string()))?;
-                //     }
-                // }
-                //
-                // if !any_changes {
-                //     fs::remove_file(temp_path)?;
-                //     return Err(Errors::TicketNotFound);
-                // }
-                //
-                // fs::rename(temp_path, path)?;
-                //
+                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
+
+                let ticket_id = args
+                    .get(2)
+                    .filter(|id| id.len() == 8)
+                    .filter(|id| re.is_match(id))
+                    .ok_or(Errors::BadParameter(
+                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
+                    ))?
+                    .to_string();
+                let ticket_id_u32 = u32::from_str_radix(ticket_id.as_str(), 16)?;
+                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_u32);
+
+                let ticket = Ticket::find_one_by_id(&pool, ticket_id_u32).await?;
+                ticket.delete(&pool).await?;
+
                 Ok(())
             }
             Action::List => {

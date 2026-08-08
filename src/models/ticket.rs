@@ -5,7 +5,7 @@ use std::{
 
 use crate::Errors;
 use chrono::{DateTime, Utc};
-use sqlx::{SqlitePool, Type, prelude::FromRow};
+use sqlx::{Row, SqlitePool, Type, prelude::FromRow};
 
 #[derive(Debug, PartialEq, Clone, Copy, Type)]
 #[sqlx(rename_all = "lowercase")]
@@ -100,7 +100,7 @@ impl Ticket {
         Ok(())
     }
 
-    pub fn status(mut self, status: TicketStatus) -> Self {
+    pub fn status(&mut self, status: TicketStatus) -> &Self {
         self.status = status;
         self
     }
@@ -174,11 +174,67 @@ impl Ticket {
         .execute(pool)
         .await
         .map_err(|e| {
-            log::error!("Error creating tickets db scheme: {e}");
-            Errors::IOError("Error creating tickets db scheme".to_string())
+            let ticket_id = &self.id;
+            log::error!("Error saving ticket with id: {ticket_id} - {e}");
+            Errors::IOError(format!("Error saving ticket with id: {ticket_id}"))
         })?;
 
         Ok(())
+    }
+
+    pub async fn update(&self, pool: &SqlitePool) -> Result<(), Errors> {
+        sqlx::query("UPDATE tickets SET title=?, description=?, date=?, status=? WHERE id=?")
+            .bind(&self.title)
+            .bind(&self.description)
+            .bind(&self.date)
+            .bind(&self.status)
+            .bind(&self.id)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                let ticket_id = &self.id;
+                log::error!("Error updating ticket with id: {ticket_id} - {e}");
+                Errors::IOError(format!("Error updating ticket with id: {ticket_id}"))
+            })?;
+
+        Ok(())
+    }
+
+    pub async fn delete(&self, pool: &SqlitePool) -> Result<(), Errors> {
+        sqlx::query("DELETE FROM tickets WHERE id=?")
+            .bind(&self.id)
+            .execute(pool)
+            .await
+            .map_err(|e| {
+                let ticket_id = &self.id;
+                log::error!("Error deleting ticket with id: {ticket_id} - {e}");
+                Errors::IOError(format!("Error deleting ticket with id: {ticket_id}"))
+            })?;
+
+        Ok(())
+    }
+
+    pub async fn find_one_by_id(pool: &SqlitePool, ticket_id: u32) -> Result<Ticket, Errors> {
+        let row =
+            sqlx::query("SELECT id, title, description, date, status FROM tickets WHERE id=?")
+                .bind(&ticket_id)
+                .fetch_one(pool)
+                .await
+                .map_err(|e| {
+                    log::error!("Error finding ticket with id: {ticket_id} - {e}");
+                    Errors::IOError(format!("Error finding ticket with id: {ticket_id}"))
+                })?;
+
+        log::info!("Ticket found with id: {ticket_id} - {row:?}");
+
+        let mut ticket = Ticket::default();
+        ticket.id = row.get("id");
+        ticket.title = row.get("title");
+        ticket.description = row.get("description");
+        ticket.date = row.get("date");
+        ticket.status = row.get("status");
+
+        Ok(ticket)
     }
 
     pub async fn find_all(pool: &SqlitePool) -> Result<Vec<Self>, Errors> {
