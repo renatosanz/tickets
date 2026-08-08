@@ -3,7 +3,8 @@ use std::env;
 
 use crate::{
     errors::Errors,
-    state::{Action, State},
+    state::State,
+    utils::validation,
 };
 
 pub mod errors;
@@ -31,7 +32,7 @@ async fn run_application() -> Result<(), Errors> {
         .iter()
         .any(|a| matches!(a.to_lowercase().as_str(), "-v" | "--verbose"));
     if verbose {
-        simple_logger::init_with_level(log::Level::Debug).unwrap();
+        simple_logger::init_with_level(log::Level::Trace).unwrap();
     } else {
         simple_logger::init_with_level(log::Level::Info).unwrap();
     }
@@ -49,7 +50,7 @@ async fn run_application() -> Result<(), Errors> {
             log::debug!("Help needed: {}", action);
             return Err(Errors::HelpNeeded);
         }
-        state.action = Some(Action::is_valid(action)?);
+        state.action = Some(validation::action(action)?);
     }
 
     for (idx, value) in args.iter().enumerate() {

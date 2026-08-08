@@ -1,16 +1,6 @@
-use std::{
-    fs::{self, File, OpenOptions},
-    io::{BufRead, BufReader, Read},
-};
-
-use regex::Regex;
 use sqlx::sqlite::SqlitePoolOptions;
-use std::io::Write;
 
-use crate::{
-    errors::Errors,
-    models::ticket::{Ticket, TicketStatus},
-};
+use crate::{errors::Errors, models::ticket::Ticket, utils::validation};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Action {
@@ -21,19 +11,7 @@ pub enum Action {
     GetDetail,
 }
 
-impl Action {
-    pub fn is_valid(s: &String) -> Result<Action, Errors> {
-        match s.to_lowercase().as_str() {
-            "add" | "a" => Ok(Action::Add),
-            "delete" | "d" => Ok(Action::Delete),
-            "list" | "l" => Ok(Action::List),
-            "setstatus" | "set" => Ok(Action::SetStatus),
-            "getdetail" | "get" => Ok(Action::GetDetail),
-            _ => Err(Errors::UnknownAction),
-        }
-    }
-}
-
+#[derive(Debug)]
 pub struct State {
     pub action: Option<Action>,
     pub default_filepath: String,
@@ -52,6 +30,7 @@ impl State {
     }
     pub async fn execute(&self, args: &Vec<String>) -> Result<(), Errors> {
         log::debug!("executing action: {:?}", &self.action.unwrap());
+        log::trace!("state to execute - {:?}", &self);
 
         let path = self
             .custom_filepath
@@ -76,6 +55,11 @@ impl State {
                 let title = args.get(2).ok_or(Errors::MissingParameter)?;
                 let description = args.get(3).ok_or(Errors::MissingParameter)?;
                 log::debug!("adding ticket <title: {}, desc: {}>", &title, &description);
+                log::trace!(
+                    "add input data - title: {}, description: {}",
+                    title,
+                    description
+                );
 
                 let ticket = Ticket::new(title, description);
                 ticket.save(&pool).await?;
@@ -83,24 +67,11 @@ impl State {
                 Ok(())
             }
             Action::SetStatus => {
-                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
+                let ticket_id_u32 =
+                    validation::ticket_id(args.get(2).ok_or(Errors::MissingParameter)?)?;
 
-                let ticket_id = args
-                    .get(2)
-                    .filter(|id| id.len() == 8)
-                    .filter(|id| re.is_match(id))
-                    .ok_or(Errors::BadParameter(
-                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
-                    ))?
-                    .to_string();
-
-                let ticket_id_u32 = u32::from_str_radix(ticket_id.as_str(), 16)?;
-                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_u32);
-
-                let new_status = args
-                    .get(3)
-                    .ok_or(Errors::MissingParameter)
-                    .and_then(TicketStatus::is_valid)?;
+                let new_status =
+                    validation::ticket_status(args.get(3).ok_or(Errors::MissingParameter)?)?;
 
                 let mut ticket = Ticket::find_one_by_id(&pool, ticket_id_u32).await?;
                 ticket.status(new_status);
@@ -109,37 +80,16 @@ impl State {
                 Ok(())
             }
             Action::GetDetail => {
-                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
-
-                let ticket_id = args
-                    .get(2)
-                    .filter(|id| id.len() == 8)
-                    .filter(|id| re.is_match(id))
-                    .ok_or(Errors::BadParameter(
-                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
-                    ))?
-                    .to_string();
-
-                let ticket_id_u32 = u32::from_str_radix(ticket_id.as_str(), 16)?;
-                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, &ticket_id_u32);
+                let ticket_id_u32 =
+                    validation::ticket_id(args.get(2).ok_or(Errors::MissingParameter)?)?;
 
                 let ticket = Ticket::find_one_by_id(&pool, ticket_id_u32).await?;
                 println!("{}", ticket.show_detailed());
                 Ok(())
             }
             Action::Delete => {
-                let re = Regex::new(r"[0-9a-fA-F]+").unwrap();
-
-                let ticket_id = args
-                    .get(2)
-                    .filter(|id| id.len() == 8)
-                    .filter(|id| re.is_match(id))
-                    .ok_or(Errors::BadParameter(
-                        "[ticket_id] must be a hexadecimal 8 chars".to_string(),
-                    ))?
-                    .to_string();
-                let ticket_id_u32 = u32::from_str_radix(ticket_id.as_str(), 16)?;
-                log::debug!("HEX: {} --- DEC U32: {}", ticket_id, ticket_id_u32);
+                let ticket_id_u32 =
+                    validation::ticket_id(args.get(2).ok_or(Errors::MissingParameter)?)?;
 
                 let ticket = Ticket::find_one_by_id(&pool, ticket_id_u32).await?;
                 ticket.delete(&pool).await?;
@@ -148,6 +98,7 @@ impl State {
             }
             Action::List => {
                 log::debug!("listing all tickets <>");
+                log::trace!("fetching ticket list for display");
                 let ticket_list = Ticket::find_all(&pool).await?;
                 println!("  ALL TICKETS [{}]", ticket_list.len());
                 println!("  id\ttitle\tstatus\tdescription\tdate");

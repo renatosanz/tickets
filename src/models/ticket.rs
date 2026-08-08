@@ -1,9 +1,9 @@
 use std::{
-    fmt::{Display, format},
+    fmt::Display,
     hash::{DefaultHasher, Hash, Hasher},
 };
 
-use crate::Errors;
+use crate::{Errors, utils::validation};
 use chrono::{DateTime, Utc};
 use sqlx::{Row, SqlitePool, Type, prelude::FromRow};
 
@@ -14,21 +14,6 @@ pub enum TicketStatus {
     Blocked,
     Closed,
     InProgress,
-}
-
-impl TicketStatus {
-    pub fn is_valid(s: &String) -> Result<TicketStatus, Errors> {
-        log::debug!("validating TicketStatus: {}", s);
-        match s.to_lowercase().as_str() {
-            "open" => Ok(TicketStatus::Open),
-            "blocked" => Ok(TicketStatus::Blocked),
-            "closed" => Ok(TicketStatus::Closed),
-            "inprogress" => Ok(TicketStatus::InProgress),
-            _ => Err(Errors::BadParameter(format!(
-                "[ticket_status] invalid value '{s}' for ticket status, use -h for help"
-            ))),
-        }
-    }
 }
 
 #[derive(FromRow)]
@@ -43,6 +28,11 @@ pub struct Ticket {
 impl Ticket {
     // static method (dont take self as first parm)
     pub fn new<S: Into<String> + Copy>(title: S, description: S) -> Ticket {
+        log::trace!(
+            "Ticket::new - title: {}, description: {}",
+            title.into(),
+            description.into()
+        );
         let mut hasher = DefaultHasher::new();
         let current_date = Utc::now();
         let unique_str = format!(
@@ -63,10 +53,10 @@ impl Ticket {
     }
 
     pub fn new_from_string<S: Into<String> + Copy>(raw_data: S) -> Result<Ticket, Errors> {
-        log::debug!("Received raw_data:  {}", &raw_data.into());
+        log::trace!("Received raw_data:  {}", &raw_data.into());
         let binding = raw_data.into();
         let parts: Vec<&str> = binding.split(',').collect();
-        log::debug!("Received: {} parts - {:?}", parts.len(), parts);
+        log::trace!("Received: {} parts - {:?}", parts.len(), parts);
 
         let [id, title, status, description, date] =
             parts.try_into().map_err(|_| Errors::InvalidFormat)?;
@@ -74,13 +64,14 @@ impl Ticket {
         Ok(Ticket {
             id: id.parse().map_err(|_| Errors::InvalidFormat)?,
             title: title.to_string(),
-            status: TicketStatus::is_valid(&status.to_string())?,
+            status: validation::ticket_status(&status.to_string())?,
             description: description.to_string(),
             date: date.parse().map_err(|_| Errors::InvalidFormat)?,
         })
     }
 
     pub async fn create_table(pool: &SqlitePool) -> Result<(), Errors> {
+        log::trace!("creating tickets table schema");
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS tickets  (
             id SERIAL PRIMARY KEY NOT NULL,
@@ -101,6 +92,7 @@ impl Ticket {
     }
 
     pub fn status(&mut self, status: TicketStatus) -> &Self {
+        log::trace!("setting ticket {:x} status to {:?}", self.id, status);
         self.status = status;
         self
     }
@@ -114,6 +106,7 @@ impl Ticket {
     }
 
     pub fn show_detailed(self) -> String {
+        log::trace!("building detailed view for ticket {:x}", self.id);
         let w: usize = 56;
         let border = "─".repeat(w);
 
@@ -152,6 +145,7 @@ impl Ticket {
     }
 
     pub fn list_view(&self) -> String {
+        log::trace!("building list view for ticket {:x}", self.id);
         format!(
             "{:08x}\t{}\t{:?}\t{}\t{}",
             self.id,
@@ -163,6 +157,12 @@ impl Ticket {
     }
 
     pub async fn save(&self, pool: &SqlitePool) -> Result<(), Errors> {
+        log::trace!(
+            "saving ticket - id: {:x}, title: {}, status: {:?}",
+            self.id,
+            self.title,
+            self.status
+        );
         sqlx::query(
             "INSERT INTO tickets (id,title, description, date, status) VALUES (?,?, ?, ?, ?)",
         )
@@ -183,6 +183,12 @@ impl Ticket {
     }
 
     pub async fn update(&self, pool: &SqlitePool) -> Result<(), Errors> {
+        log::trace!(
+            "updating ticket - id: {:x}, title: {}, status: {:?}",
+            self.id,
+            self.title,
+            self.status
+        );
         sqlx::query("UPDATE tickets SET title=?, description=?, date=?, status=? WHERE id=?")
             .bind(&self.title)
             .bind(&self.description)
@@ -201,6 +207,7 @@ impl Ticket {
     }
 
     pub async fn delete(&self, pool: &SqlitePool) -> Result<(), Errors> {
+        log::trace!("deleting ticket {:x}", self.id);
         sqlx::query("DELETE FROM tickets WHERE id=?")
             .bind(&self.id)
             .execute(pool)
@@ -215,6 +222,7 @@ impl Ticket {
     }
 
     pub async fn find_one_by_id(pool: &SqlitePool, ticket_id: u32) -> Result<Ticket, Errors> {
+        log::trace!("finding ticket by id: {:x}", ticket_id);
         let row =
             sqlx::query("SELECT id, title, description, date, status FROM tickets WHERE id=?")
                 .bind(&ticket_id)
@@ -238,12 +246,13 @@ impl Ticket {
     }
 
     pub async fn find_all(pool: &SqlitePool) -> Result<Vec<Self>, Errors> {
+        log::trace!("finding all tickets");
         let tickets: Vec<Self> = sqlx::query_as("SELECT * FROM tickets ORDER BY id DESC")
             .fetch_all(pool)
             .await
             .map_err(|e| {
-                log::error!("Error creating tickets db scheme: {e}");
-                Errors::IOError("Error creating tickets db scheme".to_string())
+                log::error!("Error fetching tickets from db: {e}");
+                Errors::IOError("Error fetching tickets from db".to_string())
             })?;
 
         Ok(tickets)
