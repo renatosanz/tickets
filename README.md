@@ -143,6 +143,6 @@ understand all its power.
 
 ## License
 
-None. This is a learning project. ༼ つ ╹ ╹ ༽つ
+MIT. This is a learning project. ༼ つ ╹ ╹ ༽つ
 Any improvement, comment, fix or idea is well recieved.
 Renato.
