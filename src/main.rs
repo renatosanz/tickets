@@ -34,7 +34,7 @@ async fn run_application() -> Result<(), Errors> {
     if verbose {
         simple_logger::init_with_level(log::Level::Trace).unwrap();
     } else {
-        simple_logger::init_with_level(log::Level::Info).unwrap();
+        simple_logger::init_with_level(log::Level::Error).unwrap();
     }
 
     log::debug!("Received {} arguments: {}", args.len(), args.join(","));

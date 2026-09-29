@@ -112,7 +112,7 @@ impl Ticket {
 
         let date_str = self.date.format("%-d of %B of %Y at %-I:%M %p").to_string();
         let status_str = format!("{:?}", self.status);
-        let id_str = format!("{:x}", self.id);
+        let id_str = format!("{:08x}", self.id);
 
         let mut s = String::new();
 
