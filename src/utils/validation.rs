@@ -3,20 +3,7 @@ use regex::Regex;
 use crate::{
     errors::Errors,
     models::ticket::TicketStatus,
-    state::Action,
 };
-
-pub fn action(raw: &str) -> Result<Action, Errors> {
-    log::trace!("validating action input: [{}]", raw);
-    match raw.to_lowercase().as_str() {
-        "add" | "a" => Ok(Action::Add),
-        "delete" | "d" => Ok(Action::Delete),
-        "list" | "l" => Ok(Action::List),
-        "setstatus" | "set" => Ok(Action::SetStatus),
-        "getdetail" | "get" => Ok(Action::GetDetail),
-        _ => Err(Errors::UnknownAction),
-    }
-}
 
 pub fn ticket_status(raw: &str) -> Result<TicketStatus, Errors> {
     log::trace!("validating ticket status input: [{}]", raw);
