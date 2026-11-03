@@ -5,10 +5,12 @@ use std::{
 
 use crate::{Errors, utils::validation};
 use chrono::{DateTime, Utc};
+use clap::ValueEnum;
 use sqlx::{Row, SqlitePool, Type, prelude::FromRow};
 
-#[derive(Debug, PartialEq, Clone, Copy, Type)]
+#[derive(Debug, PartialEq, Clone, Copy, Type, ValueEnum)]
 #[sqlx(rename_all = "lowercase")]
+#[clap(rename_all = "lowercase")]
 pub enum TicketStatus {
     Open,
     Blocked,
