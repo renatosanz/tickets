@@ -57,10 +57,20 @@ async fn run() -> Result<(), Errors> {
     if cli.verbose {
         simple_logger::init_with_level(log::Level::Trace).unwrap();
     } else {
-        simple_logger::init_with_level(log::Level::Error).unwrap();
+        simple_logger::init_with_level(log::Level::Info).unwrap();
     }
 
-    let path = cli.filepath.clone();
+    let mut path = cli.filepath.clone();
+    // Fix #1: prevent path traversal
+    if path.contains("..") || std::path::Path::new(&path).is_absolute() {
+        return Err(Errors::BadParameter("invalid file path".into()));
+    }
+    path = std::path::Path::new(&path)
+        .file_name()
+        .unwrap_or(std::ffi::OsStr::new("tickets.db"))
+        .to_string_lossy()
+        .into_owned();
+    let path = path;
 
     match cli.action {
         ActionSpec::Add { title, description } => {

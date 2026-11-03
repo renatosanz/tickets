@@ -36,12 +36,14 @@ impl Ticket {
             description.into()
         );
         let mut hasher = DefaultHasher::new();
+        let process_id = std::process::id() as u32;
         let current_date = Utc::now();
         let unique_str = format!(
-            "{}-{}-{}",
+            "{}-{}-{}-{}",
             title.into(),
             description.into(),
-            current_date.to_string()
+            current_date.timestamp_nanos_opt().unwrap_or(0),
+            process_id
         );
         unique_str.hash(&mut hasher);
         let hash_u32 = (hasher.finish() & u32::MAX as u64) as u32;
@@ -80,7 +82,8 @@ impl Ticket {
             title TEXT NOT NULL,
             description TEXT NOT NULL,
             date DATETIME NOT NULL,
-            status TEXT NOT NULL
+            status TEXT NOT NULL,
+            deleted INTEGER DEFAULT 0
         );",
         )
         .execute(pool)
@@ -209,8 +212,8 @@ impl Ticket {
     }
 
     pub async fn delete(&self, pool: &SqlitePool) -> Result<(), Errors> {
-        log::trace!("deleting ticket {:x}", self.id);
-        sqlx::query("DELETE FROM tickets WHERE id=?")
+        log::trace!("soft deleting ticket {:x}", self.id);
+        sqlx::query("UPDATE tickets SET deleted = 1 WHERE id = ?")
             .bind(&self.id)
             .execute(pool)
             .await
@@ -226,7 +229,7 @@ impl Ticket {
     pub async fn find_one_by_id(pool: &SqlitePool, ticket_id: u32) -> Result<Ticket, Errors> {
         log::trace!("finding ticket by id: {:x}", ticket_id);
         let row =
-            sqlx::query("SELECT id, title, description, date, status FROM tickets WHERE id=?")
+            sqlx::query("SELECT id, title, description, date, status FROM tickets WHERE id=? AND deleted = 0")
                 .bind(&ticket_id)
                 .fetch_one(pool)
                 .await
@@ -249,7 +252,7 @@ impl Ticket {
 
     pub async fn find_all(pool: &SqlitePool) -> Result<Vec<Self>, Errors> {
         log::trace!("finding all tickets");
-        let tickets: Vec<Self> = sqlx::query_as("SELECT * FROM tickets ORDER BY id DESC")
+        let tickets: Vec<Self> = sqlx::query_as("SELECT * FROM tickets WHERE deleted = 0 ORDER BY id DESC")
             .fetch_all(pool)
             .await
             .map_err(|e| {
