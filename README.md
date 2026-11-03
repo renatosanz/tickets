@@ -129,8 +129,8 @@ intentionally touches a wide range of language and ecosystem features:
 - **Async programming**: the whole app runs on `tokio`; database calls are `async`.
 - **SQL and a real database**: uses `sqlx` against SQLite with async queries,
   parameter binding, and runtime schema creation.
-- **CLI argument parsing**: done by hand instead of with a parser crate, to practice
-  iterating over `std::env::args`.
+- **CLI argument parsing**: done with `clap` using declarative subcommands.
+- **Terminal UI**: `getdetail` and `list` now use styled box layouts (textual-inspired formatting).
 - **Logging**: uses `log` and `simple_logger`, toggled by a `--verbose` flag.
 - **Date and time**: uses `chrono` for `DateTime<Utc>` timestamps and pretty printing.
 - **Module organization**: the code is split into `models`, `utils`, `state`, and

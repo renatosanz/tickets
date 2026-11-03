@@ -10,6 +10,7 @@ use crate::{
 pub mod errors;
 pub mod models;
 pub mod state;
+pub mod ui;
 pub mod utils;
 
 #[derive(Parser)]

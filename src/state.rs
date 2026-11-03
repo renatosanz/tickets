@@ -27,11 +27,7 @@ pub async fn run_list(path: &str) -> Result<(), Errors> {
     let pool = connect(path).await?;
     Ticket::create_table(&pool).await?;
     let tickets = Ticket::find_all(&pool).await?;
-    println!("  ALL TICKETS [{}]", tickets.len());
-    println!("  id\ttitle\tstatus\tdescription\tdate");
-    for ticket in tickets {
-        println!("  {}", ticket.list_view());
-    }
+    crate::ui::render_list(&tickets);
     Ok(())
 }
 
@@ -47,7 +43,7 @@ pub async fn run_getdetail(path: &str, id: u32) -> Result<(), Errors> {
     let pool = connect(path).await?;
     Ticket::create_table(&pool).await?;
     let ticket = Ticket::find_one_by_id(&pool, id).await?;
-    println!("{}", ticket.show_detailed());
+    crate::ui::render_detail(&ticket);
     Ok(())
 }
 
