@@ -7,33 +7,25 @@ fn term_w() -> usize {
 }
 
 pub fn render_list(tickets: &[Ticket]) {
-    let w = term_w();
-    println!("┌{}┐", "─".repeat(w.saturating_sub(2)));
-    println!("│ {:<width$} │", "TICKETS LIST", width = w.saturating_sub(4));
-    println!("├{}┤", "─".repeat(w.saturating_sub(2)));
-    println!("│ {:08} │ {:20} │ {:12} │ {:20} │ {:10} │", "ID", "TITLE", "STATUS", "DESC", "DATE");
-    println!("├{}┤", "─".repeat(w.saturating_sub(2)));
+    println!("{:>8} │ {:20} │ {:12} │ {:20} │ {:10}", "ID", "TITLE", "STATUS", "DESC", "DATE");
+    println!("{}", "─".repeat(term_w()));
     for t in tickets {
-        println!("│ {:08x} │ {:20} │ {:12} │ {:20} │ {:10} │",
+        println!("{:08x} │ {:20} │ {:12} │ {:20} │ {:10}",
             t.id, truncate(&t.title, 20), format!("{:?}", t.status), truncate(&t.description, 20), t.date.format("%Y-%m-%d"));
     }
-    println!("└{}┘", "─".repeat(w.saturating_sub(2)));
 }
 
 pub fn render_detail(t: &Ticket) {
-    let w = term_w();
-    println!("╔{}╗", "═".repeat(w.saturating_sub(2)));
-    println!("║ Ticket #{:08x} {:>width$} ║", t.id, "", width = w.saturating_sub(14));
-    println!("╠{}╣", "═".repeat(w.saturating_sub(2)));
-    println!("║ Title:    {:<width$} ║", t.title, width = w.saturating_sub(10));
-    println!("║ Status:   {:>width$} ║", format!("{:?}", t.status), width = w.saturating_sub(10));
-    println!("║ Date:     {:<width$} ║", t.date.format("%-d %B %Y %I:%M %p"), width = w.saturating_sub(10));
-    println!("╠{}╣", "═".repeat(w.saturating_sub(2)));
-    println!("║ Description:{:<width$} ║", "", width = w.saturating_sub(14));
+    println!("Ticket #{}  │  Title: {}  │  Status: {}  │  Date: {}",
+        format!("{:08x}", t.id),
+        t.title,
+        format!("{:?}", t.status),
+        t.date.format("%-d %B %Y %I:%M %p"));
+    println!("{}", "─".repeat(term_w()));
+    println!("Description:");
     for line in t.description.lines().take(10) {
-        println!("║   {:<width$} ║", truncate(line, w.saturating_sub(7)), width = w.saturating_sub(7));
+        println!("  {}", line);
     }
-    println!("╚{}╝", "═".repeat(w.saturating_sub(2)));
 }
 
 fn truncate(s: &str, max: usize) -> String {
