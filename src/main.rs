@@ -57,7 +57,7 @@ async fn run() -> Result<(), Errors> {
     if cli.verbose {
         simple_logger::init_with_level(log::Level::Trace).unwrap();
     } else {
-        simple_logger::init_with_level(log::Level::Info).unwrap();
+        simple_logger::init_with_level(log::Level::Error).unwrap();
     }
 
     let mut path = cli.filepath.clone();
